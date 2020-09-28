@@ -32,18 +32,13 @@ enum flags {
 };
 
 enum instructions {
-    mov_rr,
     mov_rm,
-    mov_mr,
     mov_rl,
-    mov_tl,
     mov_rt,
     cmp_rr,
 
-    add_rr,
     add_rl,
     
-    sub_rr,
     sub_rl,
     
     jz_r,

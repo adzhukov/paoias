@@ -60,20 +60,11 @@ static inline void init_array() {
 static inline void execute_command() {
     const uint32_t command = *addr(registers[eip]);
     switch (cmd_code(command)) {
-        case mov_rr:
-            registers[op1(command)] = registers[op2(command)];
-            break;
         case mov_rm:
             registers[op1(command)] = *addr(literal(command));
             break;
-        case mov_mr:
-            *addr(op1(command)) = registers[op2(command)];
-            break;
         case mov_rl:
             registers[op1(command)] = literal(command);
-            break;
-        case mov_tl:
-            *addr(registers[op1(command)]) = literal(command);
             break;
         case mov_rt:
             registers[op1(command)] = *addr(registers[op2(command)]);
@@ -81,14 +72,8 @@ static inline void execute_command() {
         case cmp_rr:
             compare(registers[op1(command)], registers[op2(command)]);
             break;
-        case add_rr:
-            registers[op1(command)] += registers[op2(command)];
-            break;
         case add_rl:
             registers[op1(command)] += literal(command);
-            break;
-        case sub_rr:
-            registers[op1(command)] -= registers[op2(command)];
             break;
         case sub_rl:
             registers[op1(command)] -= literal(command);
@@ -206,9 +191,7 @@ void parse(const char * const filename) {
 
         uint32_t command = 0;
         
-        if (!strcmp("MOV_TL", cmd)) {
-            command = cmd_rl(mov_tl, op1, op2);
-        } else if (!strcmp("MOV_RL", cmd)) {
+        if (!strcmp("MOV_RL", cmd)) {
             command = cmd_rl(mov_rl, op1, op2);
         } else if (!strcmp("MOV_RM", cmd)) {
             command = cmd_rl(mov_rm, op1, op2);
