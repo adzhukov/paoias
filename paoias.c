@@ -4,6 +4,21 @@ static uint32_t registers[0x20];
 static int flags[0x10];
 static uint32_t memory[0xffff];
 
+static uint32_t array[] = {
+    0x1829,
+    0x8372,
+    0x8000,
+    0x0072,
+    0x8731,
+    0xa836,
+    0xaaaa,
+    0xded0,
+    0x0083,
+    0x8437,
+    0x8373,
+    0x0
+};
+
 static int verbosity = 0;
 
 static inline uint32_t cmd_code(uint32_t cmd) {
@@ -34,6 +49,12 @@ static inline void compare(uint32_t op1, uint32_t op2) {
 
 static inline void test(uint32_t op1, uint32_t op2) {
     compare(op1 & op2, 0);
+}
+
+static inline void init_array() {
+    uint32_t *base = memory + (0x4000 / sizeof(uint32_t));
+    *(base++) = sizeof(array) / sizeof(array[0]);
+    memcpy(base, array, sizeof(array));
 }
 
 static inline void execute_command() {
@@ -95,6 +116,7 @@ static inline void execute_command() {
 }
 
 void exec_loop() {
+    init_array();
     while (1) {
         if (verbosity) print_state();
         execute_command();
