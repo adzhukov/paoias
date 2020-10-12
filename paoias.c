@@ -15,8 +15,21 @@ static uint32_t array[] = {
     0xded0,
     0x0083,
     0x8437,
-    0x8373,
-    0x0
+    0x8373
+};
+
+static uint32_t array2[] = {
+    0x8356,
+    0x8a8d,
+    0x1000,
+    0x0002,
+    0x0002,
+    0x9236,
+    0xa092,
+    0xadda,
+    0xded9,
+    0xded2,
+    0xded1
 };
 
 static int verbosity = 0;
@@ -57,6 +70,16 @@ static inline void init_array() {
     memcpy(base, array, sizeof(array));
 }
 
+static inline void init_second_array() {
+    if (sizeof(array) != sizeof(array2)) {
+        fprintf(stderr, "ERROR: Array sizes not equals\n");
+        exit(EXIT_FAILURE);
+    }
+    uint32_t *base = memory + (0x5000 / sizeof(uint32_t));
+    *(base++) = sizeof(array2) / sizeof(array2[0]);
+    memcpy(base, array2, sizeof(array2));
+}
+
 static inline void execute_command() {
     const uint32_t command = *addr(registers[eip]);
     switch (cmd_code(command)) {
@@ -89,6 +112,20 @@ static inline void execute_command() {
             if (flags[sf])
                 registers[op1(command)] = registers[op2(command)];
             break;
+        case mul_rr: {
+            uint64_t res = registers[op1(command)] * registers[op2(command)];
+            registers[op1(command)] = res >> 32;
+            registers[op2(command)] = res & 0xffffffff;
+            break;
+        }
+        case adc_rr:
+            registers[op1(command)] += registers[op2(command)] + flags[cf];
+            flags[cf] = 0;
+            break;
+        case add_rr:
+            flags[cf] = (registers[op1(command)] + registers[op2(command)]) < registers[op1(command)];
+            registers[op1(command)] += registers[op2(command)];
+            break;
         case halt:
             print_state();
             exit(EXIT_SUCCESS);
@@ -102,6 +139,7 @@ static inline void execute_command() {
 
 void exec_loop() {
     init_array();
+    init_second_array();
     while (1) {
         if (verbosity) print_state();
         execute_command();
@@ -110,14 +148,12 @@ void exec_loop() {
 }
 
 void print_state() {
-    printf("EAX:\t%#010x", registers[eax]);
-    printf("\tEBX:\t%#010x", registers[ebx]);
-    printf("\tECX:\t%#010x", registers[ecx]);
-    printf("\tZF:\t%x\n", flags[zf]);
-    printf("EDX:\t%#010x", registers[edx]);
-    printf("\tEIP:\t%#010x", registers[eip]);
-    printf("\tCMD:\t%#010x", *addr(registers[eip]));
-    printf("\tSF:\t%x\n", flags[sf]);
+    printf("EAX:\t%#010x\tEBX:\t%#010x\tECX:\t%#010x\tZF:\t%x\n",
+           registers[eax], registers[ebx], registers[ecx], flags[zf]);
+    printf("EDX:\t%#010x\tEIP:\t%#010x\tCMD:\t%#010x\tSF:\t%x\n",
+           registers[edx], registers[eip], *addr(registers[eip]), flags[sf]);
+    printf("ESI:\t%#010x\tEDI:\t%#010x\tEBP:\t%#010x\tCF:\t%x\n",
+           registers[esi], registers[edi], registers[ebp], flags[cf]);
 }
 
 static inline uint16_t hex_to_uint16(const char * const hex) {
@@ -130,7 +166,10 @@ static inline uint16_t str_to_reg(const char * const str) {
     if (!strcmp(str, "ecx")) return ecx;
     if (!strcmp(str, "edx")) return edx;
     if (!strcmp(str, "eip")) return eip;
-    return 0;
+    if (!strcmp(str, "esi")) return esi;
+    if (!strcmp(str, "edi")) return edi;
+    if (!strcmp(str, "ebp")) return ebp;
+    return -1;
 }
 
 static inline uint32_t cmd_rr(int code, char *op1, char *op2) {
@@ -212,12 +251,19 @@ void parse(const char * const filename) {
             command |= hex_to_uint16(op1);
         } else if (!strcmp("HALT", cmd)) {
             command |= halt << 24;
+        } else if (!strcmp("MUL_RR", cmd)) {
+            command = cmd_rr(mul_rr, op1, op2);
+        } else if (!strcmp("ADC_RR", cmd)) {
+            command = cmd_rr(adc_rr, op1, op2);
+        } else if (!strcmp("ADD_RR", cmd)) {
+            command = cmd_rr(add_rr, op1, op2);
         } else {
             fprintf(stderr, "ERROR: Not implemented\n");
         }
 
-        if (verbosity > 1)
-            printf("Command: %s, OP1: %s, OP2: %s; %x\n", cmd, op1, op2, command);
+        printf("Command: %-7s; OP1: %-6s; OP2: %-6s; Opcode: %#010x\n", cmd, op1, op2, command);
+        
+        *op1 = *op2 = 0;
 
         *(command_pointer++) = command;
     }
@@ -267,6 +313,13 @@ int main(int argc, char **argv) {
             case 'h':
                 help(argv[0]);
                 break;
+            case 't': {
+                uint64_t result = 0;
+                for (int i = 0; i < sizeof(array) / sizeof(array[0]); ++i)
+                    result += array[i] * array2[i];
+                printf("%#016llx\n", result);
+                break;
+            }
         }
     }
 

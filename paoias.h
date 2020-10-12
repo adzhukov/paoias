@@ -7,7 +7,7 @@
 #include <stdio.h>
 #include <getopt.h>
 
-const char * const opts = "i:r:c:hv";
+const char * const opts = "i:r:c:hvt";
 static struct option long_options[] = {
     {"interpret", required_argument, NULL, 'i'},
     {"run", required_argument, NULL, 'r'},
@@ -23,12 +23,16 @@ enum registers {
     ebx,
     ecx,
     edx,
-    eip
+    eip,
+    esi,
+    edi,
+    ebp
 };
 
 enum flags {
     zf,
-    sf
+    sf,
+    cf
 };
 
 enum instructions {
@@ -45,6 +49,10 @@ enum instructions {
     test_rr,
     
     cmov_gt_rr,
+    
+    add_rr,
+    adc_rr,
+    mul_rr,
     
     halt
 };
