@@ -7,8 +7,8 @@ CMOV_GT_RR eax edx
 ADD_RL ebx 0x4
 SUB_RL ecx 0x1
 TEST_RR ecx ecx
-JZ_R 0x4 _
+JZ_R 0x4
 
 SUB_RL eip 0x20
 
-HALT _ _
+HALT

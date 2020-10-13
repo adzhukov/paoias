@@ -54,6 +54,15 @@ static inline uint32_t *addr(uint16_t offset) {
     return (uint32_t *)((char*)&memory + offset);
 }
 
+static inline void print_state() {
+    printf("EAX:\t%#010x\tEBX:\t%#010x\tECX:\t%#010x\tZF:\t%x\n",
+           registers[eax], registers[ebx], registers[ecx], flags[zf]);
+    printf("EDX:\t%#010x\tEIP:\t%#010x\tCMD:\t%#010x\tSF:\t%x\n",
+           registers[edx], registers[eip], *addr(registers[eip]), flags[sf]);
+    printf("ESI:\t%#010x\tEDI:\t%#010x\tEBP:\t%#010x\tCF:\t%x\n",
+           registers[esi], registers[edi], registers[ebp], flags[cf]);
+}
+
 static inline void compare(uint32_t op1, uint32_t op2) {
     uint32_t res = op1 - op2;
     flags[zf] = !res;
@@ -147,15 +156,6 @@ void exec_loop() {
     }
 }
 
-void print_state() {
-    printf("EAX:\t%#010x\tEBX:\t%#010x\tECX:\t%#010x\tZF:\t%x\n",
-           registers[eax], registers[ebx], registers[ecx], flags[zf]);
-    printf("EDX:\t%#010x\tEIP:\t%#010x\tCMD:\t%#010x\tSF:\t%x\n",
-           registers[edx], registers[eip], *addr(registers[eip]), flags[sf]);
-    printf("ESI:\t%#010x\tEDI:\t%#010x\tEBP:\t%#010x\tCF:\t%x\n",
-           registers[esi], registers[edi], registers[ebp], flags[cf]);
-}
-
 static inline uint16_t hex_to_uint16(const char * const hex) {
     return strtoul(hex, NULL, 16);
 }
@@ -186,26 +186,6 @@ static inline uint32_t cmd_rl(int code, char *op1, char *op2) {
     command |= str_to_reg(op1) << 16;
     command |= hex_to_uint16(op2);
     return command;
-}
-
-static inline void write_exec_file() {
-    FILE *executable = fopen("executable", "wb");
-    if (!executable) {
-        fprintf(stderr, "ERROR: Count not open file");
-        exit(EXIT_FAILURE);
-    }
-    fwrite(memory, 0xfff, 1, executable);
-    fclose(executable);
-}
-
-static inline void read_exec_file(const char * const filename) {
-    FILE *executable = fopen(filename, "rb");
-    if (!executable) {
-        fprintf(stderr, "ERROR: Could not opne file %s", filename);
-        exit(EXIT_FAILURE);
-    }
-    fread(memory, 0xfff, 1, executable);
-    fclose(executable);
 }
 
 void parse(const char * const filename) {
@@ -260,11 +240,12 @@ void parse(const char * const filename) {
         } else {
             fprintf(stderr, "ERROR: Not implemented\n");
         }
-
-        printf("Command: %-7s; OP1: %-6s; OP2: %-6s; Opcode: %#010x\n", cmd, op1, op2, command);
         
-        *op1 = *op2 = 0;
-
+        if (verbosity > 1) {
+            printf("Command: %-7s; OP1: %-6s; OP2: %-6s; Opcode: %#010x\n", cmd, op1, op2, command);
+            *op1 = *op2 = 0;
+        }
+        
         *(command_pointer++) = command;
     }
 
@@ -277,7 +258,6 @@ static inline void help(const char * const name) {
     printf("usage: %s [OPTIONS]\n", name);
     puts("  -c, --compile\tcompile asm\n" \
          "  -i, --interpret\trun asm\n" \
-         "  -r, --run\trun executable\n" \
          "  -h, --help\tprint help");
 }
 
@@ -299,15 +279,12 @@ int main(int argc, char **argv) {
                 ++verbosity;
                 break;
             case 'c':
+                verbosity += 2;
                 parse(optarg);
-                write_exec_file();
+                verbosity -= 2;
                 break;
             case 'i':
                 parse(optarg);
-                exec_loop();
-                break;
-            case 'r':
-                read_exec_file(optarg);
                 exec_loop();
                 break;
             case 'h':

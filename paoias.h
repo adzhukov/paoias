@@ -57,6 +57,4 @@ enum instructions {
     halt
 };
 
-void print_state();
-
 #endif
