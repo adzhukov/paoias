@@ -167,22 +167,14 @@ static inline uint16_t str_to_reg(const char * const str) {
     if (!strcmp(str, "esi")) return esi;
     if (!strcmp(str, "edi")) return edi;
     if (!strcmp(str, "ebp")) return ebp;
-    return -1;
+    return invalid;
 }
 
-static inline uint32_t cmd_rr(int code, char *op1, char *op2) {
+static inline uint32_t make_command(int code, char *op1, char *op2) {
     uint32_t command = 0;
     command |= code << 24;
     command |= str_to_reg(op1) << 16;
-    command |= str_to_reg(op2) << 8;
-    return command;
-}
-
-static inline uint32_t cmd_rl(int code, char *op1, char *op2) {
-    uint32_t command = 0;
-    command |= code << 24;
-    command |= str_to_reg(op1) << 16;
-    command |= hex_to_uint16(op2);
+    command |= (str_to_reg(op2) != invalid) ? (str_to_reg(op2) << 8) : hex_to_uint16(op2);
     return command;
 }
 
@@ -209,31 +201,31 @@ void parse(const char * const filename, const int print) {
         uint32_t command = 0;
         
         if (!strcmp("MOV_RL", cmd)) {
-            command = cmd_rl(mov_rl, op1, op2);
+            command = make_command(mov_rl, op1, op2);
         } else if (!strcmp("MOV_RM", cmd)) {
-            command = cmd_rl(mov_rm, op1, op2);
+            command = make_command(mov_rm, op1, op2);
         } else if (!strcmp("MOV_RT", cmd)) {
-            command = cmd_rr(mov_rt, op1, op2);
+            command = make_command(mov_rt, op1, op2);
         } else if (!strcmp("ADD_RL", cmd)) {
-            command = cmd_rl(add_rl, op1, op2);
+            command = make_command(add_rl, op1, op2);
         } else if (!strcmp("CMP_RR", cmd)) {
-            command = cmd_rr(cmp_rr, op1, op2);
+            command = make_command(cmp_rr, op1, op2);
         } else if (!strcmp("CMOV_GT_RR", cmd)) {
-            command = cmd_rr(cmov_gt_rr, op1, op2);
+            command = make_command(cmov_gt_rr, op1, op2);
         } else if (!strcmp("SUB_RL", cmd)) {
-            command = cmd_rl(sub_rl, op1, op2);
+            command = make_command(sub_rl, op1, op2);
         } else if (!strcmp("TEST_RR", cmd)) {
-            command = cmd_rr(test_rr, op1, op2);
+            command = make_command(test_rr, op1, op2);
         } else if (!strcmp("JZ_R", cmd)) {
             command = jz_r << 24 | hex_to_uint16(op1);
         } else if (!strcmp("HALT", cmd)) {
             command = halt << 24;
         } else if (!strcmp("MUL_RR", cmd)) {
-            command = cmd_rr(mul_rr, op1, op2);
+            command = make_command(mul_rr, op1, op2);
         } else if (!strcmp("ADC_RR", cmd)) {
-            command = cmd_rr(adc_rr, op1, op2);
+            command = make_command(adc_rr, op1, op2);
         } else if (!strcmp("ADD_RR", cmd)) {
-            command = cmd_rr(add_rr, op1, op2);
+            command = make_command(add_rr, op1, op2);
         } else {
             fprintf(stderr, "ERROR: Not implemented\n");
         }

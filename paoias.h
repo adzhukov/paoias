@@ -35,6 +35,8 @@ enum flags {
 };
 
 enum instructions {
+    invalid,
+    
     mov_rm,
     mov_rl,
     mov_rt,
