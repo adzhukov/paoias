@@ -7,13 +7,12 @@
 #include <stdio.h>
 #include <getopt.h>
 
-const char * const opts = "i:r:c:hvt";
+const char * const opts = "i:r:c:ht";
 static struct option long_options[] = {
     {"interpret", required_argument, NULL, 'i'},
     {"run", required_argument, NULL, 'r'},
     {"compile", required_argument, NULL, 'c'},
     {"help", no_argument, NULL, 'h'},
-    {"verbose", no_argument, NULL, 'v'},
     {0, 0, 0, 0}
 };
 

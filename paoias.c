@@ -32,8 +32,6 @@ static uint32_t array2[] = {
     0xded1
 };
 
-static int verbosity = 0;
-
 static inline uint32_t cmd_code(uint32_t cmd) {
     return cmd >> 24;
 }
@@ -146,13 +144,13 @@ static inline void execute_command() {
     registers[eip] += sizeof(uint32_t);
 }
 
-void exec_loop() {
+void exec_loop(const int mode) {
     init_array();
     init_second_array();
     while (1) {
-        if (verbosity) print_state();
+        if (mode) print_state();
         execute_command();
-        if (verbosity) getchar();
+        if (mode) getchar();
     }
 }
 
@@ -188,14 +186,14 @@ static inline uint32_t cmd_rl(int code, char *op1, char *op2) {
     return command;
 }
 
-void parse(const char * const filename) {
+void parse(const char * const filename, const int print) {
     FILE *fp = fopen(filename, "r");
     if (!fp) {
-        fprintf(stderr, "ERROR: Could not opne file %s", filename);
+        fprintf(stderr, "ERROR: Could not open file %s", filename);
         exit(EXIT_FAILURE);
     }
 
-    char *line;
+    char *line = malloc(64);
     size_t len = 0;
     ssize_t read;
 
@@ -227,10 +225,9 @@ void parse(const char * const filename) {
         } else if (!strcmp("TEST_RR", cmd)) {
             command = cmd_rr(test_rr, op1, op2);
         } else if (!strcmp("JZ_R", cmd)) {
-            command |= jz_r << 24;
-            command |= hex_to_uint16(op1);
+            command = jz_r << 24 | hex_to_uint16(op1);
         } else if (!strcmp("HALT", cmd)) {
-            command |= halt << 24;
+            command = halt << 24;
         } else if (!strcmp("MUL_RR", cmd)) {
             command = cmd_rr(mul_rr, op1, op2);
         } else if (!strcmp("ADC_RR", cmd)) {
@@ -241,23 +238,24 @@ void parse(const char * const filename) {
             fprintf(stderr, "ERROR: Not implemented\n");
         }
         
-        if (verbosity > 1) {
-            printf("Command: %-7s; OP1: %-6s; OP2: %-6s; Opcode: %#010x\n", cmd, op1, op2, command);
+        if (print) {
+            printf("Command: %-7s; OP1: %-3s; OP2: %-6s; Opcode: %#010x\n", cmd, op1, op2, command);
             *op1 = *op2 = 0;
         }
         
         *(command_pointer++) = command;
     }
-
+    
     fclose(fp);
     if (line)
         free(line);
 }
 
 static inline void help(const char * const name) {
-    printf("usage: %s [OPTIONS]\n", name);
-    puts("  -c, --compile\tcompile asm\n" \
-         "  -i, --interpret\trun asm\n" \
+    printf("usage: %s [OPTIONS] [filename]\n", name);
+    puts("  -c, --compile\tcompile\n" \
+         "  -i, --interpret\ttrun\n" \
+         "  -r, --run\trun step by step\n" \
          "  -h, --help\tprint help");
 }
 
@@ -274,18 +272,18 @@ int main(int argc, char **argv) {
             ++optind;
             continue;
         }
+        
         switch (opt) {
-            case 'v':
-                ++verbosity;
-                break;
             case 'c':
-                verbosity += 2;
-                parse(optarg);
-                verbosity -= 2;
+                parse(optarg, 1);
                 break;
             case 'i':
-                parse(optarg);
-                exec_loop();
+                parse(optarg, 0);
+                exec_loop(0);
+                break;
+            case 'r':
+                parse(optarg, 0);
+                exec_loop(1);
                 break;
             case 'h':
                 help(argv[0]);
