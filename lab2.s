@@ -1,23 +1,20 @@
-MOV_RM ecx 0x4000
-
-MOV_RL ebp 0x4004
-MOV_RL edx 0x5004
-
-MOV_RT esi ebp
-ADD_RL ebp 0x4
-
-MOV_RT edi edx
-ADD_RL edx 0x4
-
-MUL_RR esi edi
-
-ADD_RR ebx edi
-ADC_RR eax esi
-
-SUB_RL ecx 0x1
-TEST_RR ecx ecx
-JZ_R 0x4
-
-SUB_RL eip 0x2C
-
-HALT
+mem ecx
+movto ecx
+mov ebx
+cmp ecx
+je 0x13
+movl 0x1
+addto ebx
+mem ebx
+movto egx
+mov ebx
+movto efx
+mov ecx
+addto efx
+mem efx
+mul egx
+addto eex
+mov egx
+adc edx
+jmp 0x2
+exit 0x0
