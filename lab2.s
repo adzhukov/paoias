@@ -1,20 +1,20 @@
 mem ecx
-movto ecx
+movto ecx // Получить количество элементов
 mov ebx
-cmp ecx
-je 0x13
+cmp ecx // Сравнить количество с номером текущего
+je 0x13 // Выход из цикла при равенстве
 movl 0x1
-addto ebx
-mem ebx
-movto egx
+addto ebx // Увеличить номер текущего
+mem ebx // Получить первый элемент
+movto egx // Поместить его в egx
 mov ebx
 movto efx
 mov ecx
-addto efx
-mem efx
-mul egx
-addto eex
+addto efx // Получение адреса второго
+mem efx // Получить второй элемент
+mul egx // Умножение двух элементов
+addto eex // Сумма первой части результата
 mov egx
-adc edx
-jmp 0x2
+adc edx // Сумма второй части результата
+jmp 0x2 // Переход в начало цикла
 exit 0x0

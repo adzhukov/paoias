@@ -279,9 +279,9 @@ void parse(const char * const filename, const int print) {
         exit(EXIT_FAILURE);
     }
 
-    char line[64];
+    char line[256];
 
-    while (fgets((char*)&line, sizeof(char) * 64, fp)) {
+    while (fgets((char*)&line, sizeof(char) * 256, fp)) {
         if (strlen(line) < 3 || line[0] == '/')
             continue;
         
