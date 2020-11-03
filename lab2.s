@@ -1,23 +1,18 @@
-MOV_RM ecx 0x4000
+movl eax 0x1000
+memr ecx eax
+cmp eex ecx
+jmp eq 0xf
+add eex 0x1
+movr eax eex
+add eax 0x1000
+memr ebx eax
+movr eax eex
+add eax 0x2000
+memr eax eax
+mul eax ebx
+addr egx eax
+adc efx ebx
+jmp any 2
+exit 0x0 0x0
 
-MOV_RL ebp 0x4004
-MOV_RL edx 0x5004
-
-MOV_RT esi ebp
-ADD_RL ebp 0x4
-
-MOV_RT edi edx
-ADD_RL edx 0x4
-
-MUL_RR esi edi
-
-ADD_RR ebx edi
-ADC_RR eax esi
-
-SUB_RL ecx 0x1
-TEST_RR ecx ecx
-JZ_R 0x4
-
-SUB_RL eip 0x2C
-
-HALT
+// Результат в регистрах efx и egx

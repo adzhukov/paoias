@@ -1,14 +1,14 @@
-MOV_RM ecx 0x4000
-MOV_RL ebx 0x4004
+movl eax 0x1000
+memr ecx eax
+cmp ebx ecx
+jmp eq 0xa
+add ebx 0x1
+movr eax ebx
+add eax 0x1000
+memr eax eax
+addr edx eax
+jmp any 2
+exit 0x0 0x0
 
-MOV_RT edx ebx
-CMP_RR eax edx
-CMOV_GT_RR eax edx
-ADD_RL ebx 0x4
-SUB_RL ecx 0x1
-TEST_RR ecx ecx
-JZ_R 0x4
-
-SUB_RL eip 0x20
-
-HALT
+// Результат в регистре edx
+// Сумма
