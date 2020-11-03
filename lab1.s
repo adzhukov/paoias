@@ -1,14 +1,19 @@
-MOV_RM ecx 0x4000
-MOV_RL ebx 0x4004
+movl 0x1000
+movto ebx
+mem ebx
+movto ecx
+movl 0x0
+cmp ecx
+je 0xf
+movl 0x1
+addto ebx
+subfrom ecx
+mem ebx
+cmp edx
+jl 0x4
+movto edx
+jmp 0x4
+exit 0x0
 
-MOV_RT edx ebx
-CMP_RR eax edx
-CMOV_GT_RR eax edx
-ADD_RL ebx 0x4
-SUB_RL ecx 0x1
-TEST_RR ecx ecx
-JZ_R 0x4
-
-SUB_RL eip 0x20
-
-HALT
+// Результат в регистре edx
+// Максимальный элемент

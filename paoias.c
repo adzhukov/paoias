@@ -1,293 +1,325 @@
-#include "paoias.h"
+#include <inttypes.h>
+#include <string.h>
+#include <stdlib.h>
+#include <stdio.h>
 
-static uint32_t registers[0x20];
-static int flags[0x10];
+enum registers {
+    eax,
+    ebx,
+    ecx,
+    edx,
+    eex,
+    efx,
+    egx,
+    pc,
+    REGISTERS_COUNT
+};
+
+enum flags {
+    zf,
+    sf,
+    cf,
+    FLAGS_COUNT
+};
+
+enum instructions {
+    mov,
+    movl,
+    movto,
+    mem,
+    cmp,
+    je,
+    addto,
+    subfrom,
+    jl,
+    jmp,
+    add,
+    mul,
+    adc,
+    exit_cmd
+};
+
+static uint32_t registers[REGISTERS_COUNT];
+static int flags[FLAGS_COUNT];
+
 static uint32_t memory[0xffff];
+static uint32_t *command_ptr = memory;
 
-static uint32_t array[] = {
-    0x1829,
-    0x8372,
-    0x8000,
-    0x0072,
-    0x8731,
-    0xa836,
+static uint32_t array1[] = {
+    0x9471,
+    0x3837,
+    0x8573,
+    0x4916,
+    0x0384,
+    0xf0f0,
+    0xeeee,
     0xaaaa,
-    0xded0,
-    0x0083,
-    0x8437,
-    0x8373
+    0xdddd,
+    0x0001,
+    0x4832
 };
 
 static uint32_t array2[] = {
-    0x8356,
-    0x8a8d,
-    0x1000,
-    0x0002,
-    0x0002,
-    0x9236,
-    0xa092,
-    0xadda,
-    0xded9,
-    0xded2,
-    0xded1
+    0x0123,
+    0x4567,
+    0x89ab,
+    0xcdef,
+    0x0011,
+    0x2233,
+    0x4455,
+    0x6677,
+    0x8899,
+    0xaaff,
+    0xdd00
 };
 
-static inline uint32_t cmd_code(uint32_t cmd) {
-    return cmd >> 24;
+void results() {
+    uint32_t lab1 = 0;
+    for (int i = 0; i < sizeof(array1) / sizeof(array1[0]); ++i)
+        if (array1[i] > lab1)
+            lab1 = array1[i];
+    
+    printf("\tlab1:\t%#010x\t\t", lab1);
+    
+    uint64_t lab2 = 0;
+    for (int i = 0; i < sizeof(array1) / sizeof(array1[0]); ++i)
+        lab2 += array1[i] * array2[i];
+        
+    
+    printf("\tlab2:\t%#018llx\n", lab2);
 }
 
-static inline uint32_t op1(uint32_t cmd) {
-    return cmd >> 16 & 0xff;
-}
-
-static inline uint32_t op2(uint32_t cmd) {
-    return cmd >> 8 & 0xff;
-}
-
-static inline uint32_t literal(uint32_t cmd) {
-    return cmd & 0xffff;
-}
-
-static inline uint32_t *addr(uint16_t offset) {
-    return (uint32_t *)((char*)&memory + offset);
-}
-
-static inline void print_state() {
-    printf("EAX:\t%#010x\tEBX:\t%#010x\tECX:\t%#010x\tZF:\t%x\n",
-           registers[eax], registers[ebx], registers[ecx], flags[zf]);
-    printf("EDX:\t%#010x\tEIP:\t%#010x\tCMD:\t%#010x\tSF:\t%x\n",
-           registers[edx], registers[eip], *addr(registers[eip]), flags[sf]);
-    printf("ESI:\t%#010x\tEDI:\t%#010x\tEBP:\t%#010x\tCF:\t%x\n",
-           registers[esi], registers[edi], registers[ebp], flags[cf]);
-}
-
-static inline void compare(uint32_t op1, uint32_t op2) {
-    uint32_t res = op1 - op2;
-    flags[zf] = !res;
-    flags[sf] = res >> 31;
-}
-
-static inline void test(uint32_t op1, uint32_t op2) {
-    compare(op1 & op2, 0);
-}
-
-static inline void init_array() {
-    uint32_t *base = memory + (0x4000 / sizeof(uint32_t));
-    *(base++) = sizeof(array) / sizeof(array[0]);
-    memcpy(base, array, sizeof(array));
-}
-
-static inline void init_second_array() {
-    if (sizeof(array) != sizeof(array2)) {
-        fprintf(stderr, "ERROR: Array sizes not equals\n");
-        exit(EXIT_FAILURE);
-    }
-    uint32_t *base = memory + (0x5000 / sizeof(uint32_t));
+void init_array() {
+    uint32_t *base = memory + 0x1000;
+    *(base++) = sizeof(array1) / sizeof(array1[0]);
+    memcpy(base, array1, sizeof(array1));
+    
+    base = memory + 0x2000;
     *(base++) = sizeof(array2) / sizeof(array2[0]);
     memcpy(base, array2, sizeof(array2));
 }
 
-static inline void execute_command() {
-    const uint32_t command = *addr(registers[eip]);
-    switch (cmd_code(command)) {
-        case mov_rm:
-            registers[op1(command)] = *addr(literal(command));
+void print_state() {
+    printf(" Счетчик команд:\t%#010x\t(%d)", registers[pc], registers[pc]);
+    
+    printf("\n Регистры:");
+    
+    printf("\t\teax:\t%#010x", registers[eax]);
+    printf("\tebx:\t%#010x", registers[ebx]);
+    printf("\tecx:\t%#010x", registers[ecx]);
+    printf("\n edx:\t%#010x", registers[edx]);
+    printf("\teex:\t%#010x", registers[eex]);
+    printf("\tefx:\t%#010x", registers[efx]);
+    printf("\tegx:\t%#010x", registers[egx]);
+    
+    printf("\n Флаги:");
+    
+    printf("\tsf:\t%x", flags[sf]);
+    printf("\tzf:\t%x", flags[zf]);
+    printf("\tcf:\t%x\n", flags[cf]);
+}
+
+uint16_t get_operand(uint32_t command) {
+    return command & 0xffff;
+}
+
+void execute_command(const int verbose) {
+    const uint32_t command = memory[registers[pc]];
+    
+    switch (command >> 16) {
+        case mov:
+            registers[eax] = registers[get_operand(command)];
             break;
-        case mov_rl:
-            registers[op1(command)] = literal(command);
+        case movl:
+            registers[eax] = get_operand(command);
             break;
-        case mov_rt:
-            registers[op1(command)] = *addr(registers[op2(command)]);
+        case movto:
+            registers[get_operand(command)] = registers[eax];
             break;
-        case cmp_rr:
-            compare(registers[op1(command)], registers[op2(command)]);
+        case mem:
+            registers[eax] = memory[registers[get_operand(command)]];
             break;
-        case add_rl:
-            registers[op1(command)] += literal(command);
-            break;
-        case sub_rl:
-            registers[op1(command)] -= literal(command);
-            break;
-        case jz_r:
-            if (flags[zf])
-                registers[eip] += literal(command);
-            break;
-        case test_rr:
-            test(registers[op1(command)], registers[op2(command)]);
-            break;
-        case cmov_gt_rr:
-            if (flags[sf])
-                registers[op1(command)] = registers[op2(command)];
-            break;
-        case mul_rr: {
-            uint64_t res = registers[op1(command)] * registers[op2(command)];
-            registers[op1(command)] = res >> 32;
-            registers[op2(command)] = res & 0xffffffff;
+        case cmp: {
+            uint32_t res = registers[eax] - registers[get_operand(command)];
+            flags[zf] = !res;
+            flags[sf] = res >> 31;
             break;
         }
-        case adc_rr:
-            registers[op1(command)] += registers[op2(command)] + flags[cf];
-            flags[cf] = 0;
+        case je:
+            if (flags[zf])
+                registers[pc] = get_operand(command) - 1;
             break;
-        case add_rr:
-            flags[cf] = (registers[op1(command)] + registers[op2(command)]) < registers[op1(command)];
-            registers[op1(command)] += registers[op2(command)];
+        case jl:
+            if (flags[sf])
+                registers[pc] = get_operand(command) - 1;
             break;
-        case halt:
-            print_state();
-            exit(EXIT_SUCCESS);
+        case jmp:
+            registers[pc] = get_operand(command) - 1;
+            break;
+        case addto: {
+            uint32_t dest = registers[get_operand(command)];
+            registers[get_operand(command)] += registers[eax];
+            flags[cf] = registers[get_operand(command)] < dest;
+            break;
+        }
+        case subfrom:
+            registers[get_operand(command)] -= registers[eax];
+            break;
+        case add:
+            registers[eax] += get_operand(command);
+            break;
+        case mul: {
+            uint32_t m1 = registers[eax];
+            uint32_t m2 = registers[get_operand(command)];
+            uint64_t res = m1 * m2;
+            registers[eax] = res & 0xffffffff;
+            registers[get_operand(command)] = res >> 32;
+            break;
+        }
+        case adc:
+            registers[get_operand(command)] += registers[eax] + flags[cf];
+            break;
+        case exit_cmd:
+            if (!verbose)
+                print_state();
+            exit(get_operand(command));
         default:
-            fprintf(stderr, "ERROR: invalid command %x\n", command);
+            fprintf(stderr, "ERROR: invalid command %#010x\n", command);
             exit(EXIT_FAILURE);
     }
 
-    registers[eip] += sizeof(uint32_t);
+    ++registers[pc];
 }
 
-void exec_loop(const int mode) {
+void exec_loop(const int verbose) {
     init_array();
-    init_second_array();
     while (1) {
-        if (mode) print_state();
-        execute_command();
-        if (mode) getchar();
+        if (verbose) print_state();
+        execute_command(verbose);
+        if (verbose) getchar();
     }
 }
 
-static inline uint16_t hex_to_uint16(const char * const hex) {
-    return strtoul(hex, NULL, 16);
+uint16_t parse_operand(char *operand) {
+    if (!strcmp("eax", operand))
+        return eax;
+    else if (!strcmp("ebx", operand))
+        return ebx;
+    else if (!strcmp("ecx", operand))
+        return ecx;
+    else if (!strcmp("edx", operand))
+        return edx;
+    else if (!strcmp("eex", operand))
+        return eex;
+    else if (!strcmp("efx", operand))
+        return efx;
+    else if (!strcmp("egx", operand))
+        return egx;
+    
+    return REGISTERS_COUNT;
 }
 
-static inline uint16_t str_to_reg(const char * const str) {
-    if (!strcmp(str, "eax")) return eax;
-    if (!strcmp(str, "ebx")) return ebx;
-    if (!strcmp(str, "ecx")) return ecx;
-    if (!strcmp(str, "edx")) return edx;
-    if (!strcmp(str, "eip")) return eip;
-    if (!strcmp(str, "esi")) return esi;
-    if (!strcmp(str, "edi")) return edi;
-    if (!strcmp(str, "ebp")) return ebp;
-    return invalid;
+uint32_t assemble(uint16_t command, char *operand) {
+    uint16_t op = parse_operand(operand);
+    if (op == REGISTERS_COUNT)
+        op = strtoul(operand, NULL, 16);
+    
+    return (uint32_t)0 | command << 16 | op;
 }
 
-static inline uint32_t make_command(int code, char *op1, char *op2) {
-    uint32_t command = 0;
-    command |= code << 24;
-    command |= str_to_reg(op1) << 16;
-    command |= (str_to_reg(op2) != invalid) ? (str_to_reg(op2) << 8) : hex_to_uint16(op2);
-    return command;
+void write_command(const char * const line, int print) {
+    uint32_t command;
+    char cmd[32], op[32];
+    
+    sscanf(line, "%s %s", cmd, op);
+    
+    if (!strcmp("mov", cmd))
+        command = assemble(mov, op);
+    else if (!strcmp("movl", cmd))
+        command = assemble(movl, op);
+    else if (!strcmp("movto", cmd))
+        command = assemble(movto, op);
+    else if (!strcmp("mem", cmd))
+        command = assemble(mem, op);
+    else if (!strcmp("cmp", cmd))
+        command = assemble(cmp, op);
+    else if (!strcmp("je", cmd))
+        command = assemble(je, op);
+    else if (!strcmp("addto", cmd))
+        command = assemble(addto, op);
+    else if (!strcmp("subfrom", cmd))
+        command = assemble(subfrom, op);
+    else if (!strcmp("jl", cmd))
+        command = assemble(jl, op);
+    else if (!strcmp("jmp", cmd))
+        command = assemble(jmp, op);
+    else if (!strcmp("add", cmd))
+        command = assemble(add, op);
+    else if (!strcmp("mul", cmd))
+        command = assemble(mul, op);
+    else if (!strcmp("adc", cmd))
+        command = assemble(adc, op);
+    else if (!strcmp("exit", cmd))
+        command = assemble(exit_cmd, op);
+    else {
+        fprintf(stderr, "ERROR: Invalid command: %s\n", line);
+        exit(EXIT_FAILURE);
+    }
+    
+    if (print)
+        printf("%s -> %#010x\n", cmd, command);
+    
+    *command_ptr++ = command;
 }
 
 void parse(const char * const filename, const int print) {
     FILE *fp = fopen(filename, "r");
     if (!fp) {
-        fprintf(stderr, "ERROR: Could not open file %s", filename);
+        fprintf(stderr, "ERROR: Could not open file %s\n", filename);
         exit(EXIT_FAILURE);
     }
 
-    char *line = malloc(64);
-    size_t len = 0;
-    ssize_t read;
+    char line[64];
 
-    char cmd[16], op1[16], op2[16];
-
-    uint32_t *command_pointer = memory;
-
-    while ((read = getline(&line, &len, fp)) != -1) {
-        if (read < 5 || line[0] == '/')
+    while (fgets((char*)&line, sizeof(char) * 64, fp)) {
+        if (strlen(line) < 3 || line[0] == '/')
             continue;
-        sscanf(line, "%s %s %s", cmd, op1, op2);
-
-        uint32_t command = 0;
         
-        if (!strcmp("MOV_RL", cmd)) {
-            command = make_command(mov_rl, op1, op2);
-        } else if (!strcmp("MOV_RM", cmd)) {
-            command = make_command(mov_rm, op1, op2);
-        } else if (!strcmp("MOV_RT", cmd)) {
-            command = make_command(mov_rt, op1, op2);
-        } else if (!strcmp("ADD_RL", cmd)) {
-            command = make_command(add_rl, op1, op2);
-        } else if (!strcmp("CMP_RR", cmd)) {
-            command = make_command(cmp_rr, op1, op2);
-        } else if (!strcmp("CMOV_GT_RR", cmd)) {
-            command = make_command(cmov_gt_rr, op1, op2);
-        } else if (!strcmp("SUB_RL", cmd)) {
-            command = make_command(sub_rl, op1, op2);
-        } else if (!strcmp("TEST_RR", cmd)) {
-            command = make_command(test_rr, op1, op2);
-        } else if (!strcmp("JZ_R", cmd)) {
-            command = jz_r << 24 | hex_to_uint16(op1);
-        } else if (!strcmp("HALT", cmd)) {
-            command = halt << 24;
-        } else if (!strcmp("MUL_RR", cmd)) {
-            command = make_command(mul_rr, op1, op2);
-        } else if (!strcmp("ADC_RR", cmd)) {
-            command = make_command(adc_rr, op1, op2);
-        } else if (!strcmp("ADD_RR", cmd)) {
-            command = make_command(add_rr, op1, op2);
-        } else {
-            fprintf(stderr, "ERROR: Not implemented\n");
-        }
-        
-        if (print) {
-            printf("Command: %-7s; OP1: %-3s; OP2: %-6s; Opcode: %#010x\n", cmd, op1, op2, command);
-            *op1 = *op2 = 0;
-        }
-        
-        *(command_pointer++) = command;
+        write_command(line, print);
     }
-    
-    fclose(fp);
-    if (line)
-        free(line);
-}
 
-static inline void help(const char * const name) {
-    printf("usage: %s [OPTIONS] [filename]\n", name);
-    puts("  -c, --compile\tcompile\n" \
-         "  -i, --interpret\ttrun\n" \
-         "  -r, --run\trun step by step\n" \
-         "  -h, --help\tprint help");
+    fclose(fp);
 }
 
 int main(int argc, char **argv) {
-    int opt, long_index;
-
-    if (argc == 1) {
-        help(argv[0]);
-        exit(EXIT_SUCCESS);
+    if (argc < 2) {
+        printf("usage: %s ...\n" \
+               "  c [filename]\tcompile\n" \
+               "  r [filename]\trun\n" \
+               "  e [filename]\tstep by step execute\n" \
+               "  s [command]\tprint single command asm code\n" \
+               "\n  Example: %s e lab2.s\n", *argv, *argv);
+        return EXIT_FAILURE;
     }
-
-    while (optind < argc) {
-        if ((opt = getopt_long(argc, argv, opts, long_options, &long_index)) == -1) {
-            ++optind;
-            continue;
-        }
-        
-        switch (opt) {
-            case 'c':
-                parse(optarg, 1);
-                break;
-            case 'i':
-                parse(optarg, 0);
-                exec_loop(0);
-                break;
-            case 'r':
-                parse(optarg, 0);
-                exec_loop(1);
-                break;
-            case 'h':
-                help(argv[0]);
-                break;
-            case 't': {
-                uint64_t result = 0;
-                for (int i = 0; i < sizeof(array) / sizeof(array[0]); ++i)
-                    result += array[i] * array2[i];
-                printf("%#016llx\n", result);
-                break;
-            }
-        }
+    
+    const char *action = argv[1];
+    const char *filename = argv[2];
+    
+    if (!strcmp(action, "c")) {
+        parse(filename, 1);
+    } else if (!strcmp(action, "r")) {
+        parse(filename, 0);
+        exec_loop(0);
+    } else if (!strcmp(action, "e")) {
+        parse(filename, 0);
+        exec_loop(1);
+    } else if (!strcmp(action, "t")) {
+        results();
+    } else if (!strcmp(action, "s")) {
+        write_command(filename, 1);
+    } else {
+        printf("ERROR: unknown action given: %s\n", action);
+        return EXIT_FAILURE;
     }
 
     return EXIT_SUCCESS;
